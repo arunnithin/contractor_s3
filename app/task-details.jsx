@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,29 +6,101 @@ import {
   SafeAreaView,
   ScrollView,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 import styles from './styles/taskDetailsStyles';
-
-// Mock data (UI only)
-const taskDetailsMap = {
-  'PH-2024-001': {
-    id: 'PH-2024-001',
-    status: 'Assigned',
-    priority: 'High',
-    address: 'MG Road, Near Metro Station',
-    coordinates: '12.971600, 77.594600',
-    assignedDate: 'Saturday, December 14, 2024',
-    assignedTime: '03:00 PM',
-  },
-};
+import { getJobDetails, transformJobToTask } from '../services/jobsService';
 
 export default function TaskDetailsScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams();
-  const task = taskDetailsMap[id] || taskDetailsMap['PH-2024-001'];
+  const { id, dbId, latitude, longitude, priority, location, totalPotholes, totalPatchy } = useLocalSearchParams();
+  const [task, setTask] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadTaskDetails();
+  }, [id]);
+
+  const loadTaskDetails = async () => {
+    // Use passed params if available
+    if (latitude && longitude) {
+      setTask({
+        id: id,
+        dbId: dbId,
+        status: 'Assigned',
+        priority: priority || 'Medium',
+        address: location || 'Location pending',
+        coordinates: `${latitude}, ${longitude}`,
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        assignedDate: new Date().toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        }),
+        assignedTime: new Date().toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        totalPotholes: parseInt(totalPotholes) || 0,
+        totalPatchy: parseInt(totalPatchy) || 0,
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    // Fetch from API
+    try {
+      const result = await getJobDetails(dbId || id);
+      if (result.success && result.data.job) {
+        const transformedTask = transformJobToTask(result.data.job);
+        setTask({
+          ...transformedTask,
+          address: transformedTask.location,
+          coordinates: `${transformedTask.latitude}, ${transformedTask.longitude}`,
+          assignedDate: transformedTask.date,
+          assignedTime: transformedTask.time,
+        });
+      } else {
+        // No task found
+        setTask(null);
+      }
+    } catch (error) {
+      console.error('Load task details error:', error);
+      setTask(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF6B35" />
+          <Text style={styles.loadingText}>Loading task details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!task) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={64} color="#EF4444" />
+          <Text style={styles.errorText}>Task not found</Text>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={styles.backLinkText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // ---------- COLORS ----------
   const getPriorityColor = (priority) => {
@@ -59,15 +131,16 @@ export default function TaskDetailsScreen() {
 
   // ---------- START WORK (🔥 CRITICAL) ----------
   const handleStartWork = () => {
-  router.replace({
-    pathname: '/tasks',
-    params: {
-      taskId: task.id,
-      preWorkPhoto: '', // optional if no photo yet
-      action: 'START_WORK', // TasksScreen will handle status update
-    },
-  });
-};
+    router.replace({
+      pathname: '/tasks',
+      params: {
+        taskId: task.id,
+        dbId: task.dbId,
+        preWorkPhoto: '', // optional if no photo yet
+        action: 'START_WORK', // TasksScreen will handle status update
+      },
+    });
+  };
 
 
   return (
@@ -132,6 +205,28 @@ export default function TaskDetailsScreen() {
             <Text style={styles.sectionValue}>{task.assignedDate}</Text>
             <Text style={styles.sectionSubValue}>{task.assignedTime}</Text>
           </View>
+
+          {/* DAMAGE INFO */}
+          {(task.totalPotholes > 0 || task.totalPatchy > 0) && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.iconCircle}>
+                  <Ionicons name="warning" size={20} color="#FF6B35" />
+                </View>
+                <Text style={styles.sectionLabel}>Damage Report</Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 16, marginTop: 8 }}>
+                <View style={{ alignItems: 'center', flex: 1, backgroundColor: '#FFE5E5', padding: 12, borderRadius: 8 }}>
+                  <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#EF4444' }}>{task.totalPotholes || 0}</Text>
+                  <Text style={{ fontSize: 12, color: '#666' }}>Potholes</Text>
+                </View>
+                <View style={{ alignItems: 'center', flex: 1, backgroundColor: '#E5F0FF', padding: 12, borderRadius: 8 }}>
+                  <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#6366F1' }}>{task.totalPatchy || 0}</Text>
+                  <Text style={{ fontSize: 12, color: '#666' }}>Patchy Areas</Text>
+                </View>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* MAP */}

@@ -10,19 +10,22 @@ import {
   BackHandler,
   ActionSheetIOS,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import styles from './styles/workScreenStyles';
+import { completeJob, uploadWorkPhoto } from '../services/jobsService';
 
 export default function WorkScreen() {
   const router = useRouter();
-  const { id, preWorkPhoto: savedPrePhoto } = useLocalSearchParams();
+  const { id, dbId, preWorkPhoto: savedPrePhoto } = useLocalSearchParams();
 
   const [preWorkPhoto, setPreWorkPhoto] = useState(savedPrePhoto || null);
   const [postWorkPhoto, setPostWorkPhoto] = useState(null);
   const [workStarted, setWorkStarted] = useState(!!savedPrePhoto);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 🔒 BACK → TASKS ALWAYS
   useEffect(() => {
@@ -114,23 +117,44 @@ export default function WorkScreen() {
   };
 
   // ✅ FINISH WORK
-  const finishWork = () => {
+  const finishWork = async () => {
     if (!preWorkPhoto || !postWorkPhoto) {
       Alert.alert('Missing Photos', 'Please upload both photos.');
       return;
     }
 
-    Alert.alert('Success', 'Work completed successfully!', [
-      {
-        text: 'OK',
-        onPress: () => {
-          router.replace({
-            pathname: '/tasks',
-            params: { taskId: id, action: 'COMPLETE_WORK' },
-          });
-        },
-      },
-    ]);
+    setIsSubmitting(true);
+    
+    try {
+      // Upload photos first if backend supports it
+      // For now, we'll just complete the job with photo references in notes
+      const result = await completeJob(
+        dbId || id,
+        postWorkPhoto,
+        `Pre-work photo: ${preWorkPhoto}`
+      );
+
+      if (result.success) {
+        Alert.alert('Success', 'Work completed successfully!', [
+          {
+            text: 'OK',
+            onPress: () => {
+              router.replace({
+                pathname: '/tasks',
+                params: { taskId: id, action: 'COMPLETE_WORK' },
+              });
+            },
+          },
+        ]);
+      } else {
+        Alert.alert('Error', result.error || 'Failed to complete work. Please try again.');
+      }
+    } catch (error) {
+      console.error('Complete work error:', error);
+      Alert.alert('Error', 'Failed to complete work. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -170,21 +194,25 @@ export default function WorkScreen() {
         <TouchableOpacity
           style={[
             styles.finishButton,
-            preWorkPhoto && postWorkPhoto
+            preWorkPhoto && postWorkPhoto && !isSubmitting
               ? { backgroundColor: '#FF6B35' }
               : { backgroundColor: '#F0F0F0' },
           ]}
-          disabled={!preWorkPhoto || !postWorkPhoto}
+          disabled={!preWorkPhoto || !postWorkPhoto || isSubmitting}
           onPress={finishWork}
         >
-          <Text
-            style={[
-              styles.finishButtonText,
-              preWorkPhoto && postWorkPhoto ? { color: '#fff' } : { color: '#B0B0B0' },
-            ]}
-          >
-            Finish Work
-          </Text>
+          {isSubmitting ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text
+              style={[
+                styles.finishButtonText,
+                preWorkPhoto && postWorkPhoto ? { color: '#fff' } : { color: '#B0B0B0' },
+              ]}
+            >
+              Finish Work
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

@@ -3,6 +3,7 @@
     "name": "ContractorApp",
     "slug": "ContractorApp",
     "version": "1.0.0",
+    "scheme": "contractorapp",
 
     "android": {
       "package": "com.anonymous.ContractorApp",

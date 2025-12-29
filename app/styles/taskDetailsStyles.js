@@ -198,6 +198,35 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
+  // Loading and Error states
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: responsiveVertical(16),
+    fontSize: responsiveSize(16),
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: responsiveSize(20),
+  },
+  errorText: {
+    marginTop: responsiveVertical(16),
+    fontSize: responsiveSize(18),
+    fontWeight: '600',
+    color: '#333',
+  },
+  backLinkText: {
+    marginTop: responsiveVertical(16),
+    fontSize: responsiveSize(16),
+    color: '#FF6B35',
+    fontWeight: '600',
+  },
 });
 
 export default styles;

@@ -118,6 +118,9 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 8,
   },
+  signInButtonDisabled: {
+    opacity: 0.7,
+  },
   buttonIcon: {
     marginRight: scale(10),
   },
@@ -126,6 +129,20 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(18),
     fontWeight: '700',
     letterSpacing: 0.3,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderRadius: scale(8),
+    padding: verticalScale(12),
+    marginTop: verticalScale(12),
+    gap: scale(8),
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: moderateScale(14),
+    flex: 1,
   },
   demoBox: {
     flexDirection: 'row',

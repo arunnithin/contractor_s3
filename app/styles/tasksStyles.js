@@ -358,6 +358,40 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
+
+  // Loading and Empty states
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: vs(60),
+  },
+
+  loadingText: {
+    marginTop: vs(12),
+    fontSize: rs(16),
+    color: '#666',
+  },
+
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: vs(80),
+  },
+
+  emptyText: {
+    marginTop: vs(16),
+    fontSize: rs(18),
+    fontWeight: '600',
+    color: '#333',
+  },
+
+  emptySubText: {
+    marginTop: vs(8),
+    fontSize: rs(14),
+    color: '#999',
+  },
 });
 
 export default styles;

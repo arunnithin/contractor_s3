@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,91 +7,187 @@ import {
   SafeAreaView,
   Modal,
   TextInput,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import styles from './styles/tasksStyles';
 import { useFocusEffect } from '@react-navigation/native';
-
-const mockTasks = [
-  {
-    id: 'PH-2024-001',
-    date: 'Dec 14, 2024',
-    time: '15:00',
-    latitude: 8.4207098,
-    longitude: 78.0309535,
-    location: 'MG road, Near Metro Station',
-    priority: 'High',
-    status: 'Assigned',
-    accepted: false,
-  },
-  {
-    id: 'PH-2024-002',
-    date: 'Dec 12, 2024',
-    time: '07:30',
-    latitude: 8.4207098,
-    longitude: 78.0309535,
-    location: 'MG road, Near Metro Station',
-    priority: 'High',
-    status: 'Assigned',
-    accepted: false,
-  },
-];
+import { getJobs, updateJobStatus, transformJobToTask, getStats, rejectJob } from '../services/jobsService';
+import { logout, getStoredUser } from '../services/authService';
 
 export default function TasksScreen() {
   const router = useRouter();
-  const [tasks, setTasks] = useState(mockTasks);
+  const [tasks, setTasks] = useState([]);
   const [activeFilter, setActiveFilter] = useState('All');
-  const { taskId, preWorkPhoto, action } = useLocalSearchParams();
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [userName, setUserName] = useState('Contractor');
+  const [stats, setStats] = useState(null);
+  const { taskId, dbId, preWorkPhoto, action } = useLocalSearchParams();
+  const lastHandledActionRef = useRef(null);
+
+  const normalizeParam = (value) => {
+    if (Array.isArray(value)) return value[0];
+    return value;
+  };
+
+  const routeTaskId = normalizeParam(taskId);
+  const routeDbId = normalizeParam(dbId);
+  const routePreWorkPhoto = normalizeParam(preWorkPhoto);
+  const routeAction = normalizeParam(action);
 
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState(null);
 
+  // --- Load tasks from API ---
+  const loadTasks = useCallback(async (showLoader = true) => {
+    if (showLoader) setIsLoading(true);
+    
+    try {
+      const [jobsResult, statsResult, user] = await Promise.all([
+        getJobs(),
+        getStats(),
+        getStoredUser(),
+      ]);
+
+      if (user) {
+        setUserName(user.email?.split('@')[0] || 'Contractor');
+      }
+
+      if (jobsResult.success && jobsResult.data.jobs) {
+        const transformedTasks = jobsResult.data.jobs.map(transformJobToTask);
+        setTasks(transformedTasks);
+      }
+
+      if (statsResult.success) {
+        setStats(statsResult.data.stats);
+      }
+    } catch (error) {
+      console.error('Load tasks error:', error);
+      Alert.alert('Error', 'Failed to load tasks. Please try again.');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  // --- Pull to refresh ---
+  const onRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    loadTasks(false);
+  }, [loadTasks]);
+
   // --- Accept task ---
-  const handleAccept = (taskId) => {
+  const handleAccept = async (taskId) => {
+    // Find task to get dbId
+    const task = tasks.find(t => String(t.id) === String(taskId));
+    if (!task) return;
+
+    // Just mark as accepted locally - status remains "Assigned"
+    // Status will change to "In Progress" only when "Start Work" is clicked
     setTasks(prev =>
-      prev.map(task =>
-        task.id === taskId ? { ...task, accepted: true } : task
+      prev.map(t =>
+        String(t.id) === String(taskId) ? { ...t, accepted: true } : t
       )
     );
   };
 
   // --- Handle updates from WorkScreen ---
   useFocusEffect(
-  React.useCallback(() => {
-    if (action && taskId) {
-      if (action === 'START_WORK') markInProgress(taskId, preWorkPhoto ?? null);
-      if (action === 'COMPLETE_WORK') updateTaskStatus(taskId, 'Completed');
-    }
-  }, [action, taskId, preWorkPhoto])
-);
+    useCallback(() => {
+      const actionKey = `${routeAction || ''}:${routeDbId || ''}:${routeTaskId || ''}:${routePreWorkPhoto || ''}`;
+
+      // Handle actions first (doesn't rely on tasks being loaded yet), then refresh list.
+      if (routeAction && (routeTaskId || routeDbId) && lastHandledActionRef.current !== actionKey) {
+        lastHandledActionRef.current = actionKey;
+
+        if (routeAction === 'START_WORK') {
+          markInProgress(routeTaskId, routeDbId, routePreWorkPhoto ?? null);
+        }
+
+        if (routeAction === 'COMPLETE_WORK') {
+          updateTaskStatusLocal(routeTaskId, 'Completed', routeDbId);
+        }
+      }
+
+      // Always refresh on focus
+      loadTasks();
+    }, [routeAction, routeTaskId, routeDbId, routePreWorkPhoto, loadTasks])
+  );
 
   // --- MARK IN PROGRESS ---
-  const markInProgress = (taskId, prePhoto = null) => {
-  setTasks(prev =>
-    prev.map(task =>
-      task.id === taskId
-        ? {
-            ...task,
-            status: 'In Progress', // ✅ change immediately
-            accepted: true,
-            preWorkPhoto: prePhoto,
-          }
-        : task
-    )
-  );
-};
+  const markInProgress = async (taskId, dbId, prePhoto = null) => {
+    const matchByIdOrDbId = (t) => {
+      if (taskId != null && String(t.id) === String(taskId)) return true;
+      if (dbId != null && String(t.dbId) === String(dbId)) return true;
+      return false;
+    };
+
+    const task = tasks.find(matchByIdOrDbId);
+    const jobDbId = dbId ?? task?.dbId;
+
+    if (!jobDbId) {
+      Alert.alert('Error', 'Task not found to start work');
+      return;
+    }
+
+    try {
+      await updateJobStatus(
+        jobDbId, 
+        'in_progress', 
+        prePhoto ? `Work started with pre-work photo: ${prePhoto}` : 'Work started'
+      );
+      
+      // Update local state
+      setTasks(prev =>
+        prev.map(t =>
+          matchByIdOrDbId(t)
+            ? { ...t, status: 'In Progress', accepted: true, preWorkPhoto: prePhoto }
+            : t
+        )
+      );
+    } catch (error) {
+      console.error('Mark in progress error:', error);
+      Alert.alert('Error', 'Failed to start work');
+    }
+  };
 
 
   // --- UPDATE TASK STATUS ---
-  const updateTaskStatus = (taskId, newStatus) => {
-    setTasks(prev =>
-      prev.map(task =>
-        task.id === taskId ? { ...task, status: newStatus, accepted: true } : task
-      )
-    );
+  const updateTaskStatusLocal = async (taskId, newStatus, dbId) => {
+    const matchByIdOrDbId = (t) => {
+      if (taskId != null && String(t.id) === String(taskId)) return true;
+      if (dbId != null && String(t.dbId) === String(dbId)) return true;
+      return false;
+    };
+
+    const task = tasks.find(matchByIdOrDbId);
+    const jobDbId = dbId ?? task?.dbId;
+    if (!jobDbId) return;
+
+    const statusMap = {
+      'Completed': 'completed',
+      'In Progress': 'in_progress',
+      'Assigned': 'assigned',
+    };
+
+    try {
+      const result = await updateJobStatus(jobDbId, statusMap[newStatus] || 'assigned');
+      if (result.success) {
+        setTasks(prev =>
+          prev.map(t =>
+            matchByIdOrDbId(t) ? { ...t, status: newStatus, accepted: true } : t
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Update status error:', error);
+    }
   };
 
   // --- Open reject modal ---
@@ -108,6 +204,7 @@ export default function TasksScreen() {
         pathname: '/WorkScreen',
         params: {
           id: task.id,
+          dbId: task.dbId,
           preWorkPhoto: task.preWorkPhoto ?? '',
           mode: 'update',
         },
@@ -118,24 +215,61 @@ export default function TasksScreen() {
     if (task.status === 'Assigned' && task.accepted) {
       router.push({
         pathname: '/task-details',
-        params: { id: task.id },
+        params: { 
+          id: task.id,
+          dbId: task.dbId,
+          latitude: task.latitude,
+          longitude: task.longitude,
+          priority: task.priority,
+          location: task.location,
+          totalPotholes: task.totalPotholes,
+          totalPatchy: task.totalPatchy,
+        },
       });
     }
   };
 
   // --- Confirm Reject ---
-  const confirmReject = () => {
+  const confirmReject = async () => {
     if (!rejectReason.trim()) return;
 
-    setTasks(prev =>
-      prev.map(task =>
-        task.id === selectedTaskId
-          ? { ...task, status: 'Rejected', accepted: false, rejectReason }
-          : task
-      )
-    );
+    const task = tasks.find(t => t.id === selectedTaskId);
+    if (task) {
+      try {
+        // Delete assignment from backend
+        await rejectJob(task.dbId, rejectReason);
+        
+        // Remove from local state
+        setTasks(prev => prev.filter(t => t.id !== selectedTaskId));
+        
+        Alert.alert('Success', 'Task rejected and removed');
+      } catch (error) {
+        console.error('Reject error:', error);
+        Alert.alert('Error', 'Failed to reject task');
+      }
+    }
+
     setRejectModalVisible(false);
     setSelectedTaskId(null);
+  };
+
+  // --- Handle Logout ---
+  const handleLogout = async () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/login');
+          },
+        },
+      ]
+    );
   };
 
   // --- Filter logic ---
@@ -186,9 +320,9 @@ export default function TasksScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>My Tasks</Text>
-          <Text style={styles.welcomeText}>Welcome, Arun Contractor</Text>
+          <Text style={styles.welcomeText}>Welcome, {userName}</Text>
         </View>
-        <TouchableOpacity onPress={() => router.replace('/login')} style={styles.logoutButton}>
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
           <Ionicons name="log-out-outline" size={24} color="#11181C" />
         </TouchableOpacity>
       </View>
@@ -208,8 +342,34 @@ export default function TasksScreen() {
         ))}
       </View>
 
+      {/* LOADING INDICATOR */}
+      {isLoading && !isRefreshing && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF6B35" />
+          <Text style={styles.loadingText}>Loading tasks...</Text>
+        </View>
+      )}
+
       {/* TASK LIST */}
-      <ScrollView style={styles.tasksList}>
+      <ScrollView 
+        style={styles.tasksList}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            colors={['#FF6B35']}
+            tintColor="#FF6B35"
+          />
+        }
+      >
+        {!isLoading && filteredTasks().length === 0 && (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="clipboard-outline" size={64} color="#ccc" />
+            <Text style={styles.emptyText}>No tasks found</Text>
+            <Text style={styles.emptySubText}>Pull down to refresh</Text>
+          </View>
+        )}
+        
         {filteredTasks().map(task => {
           const priorityStyle = getPriorityColor(task.priority);
           const statusStyle = getStatusColor(task.status);
