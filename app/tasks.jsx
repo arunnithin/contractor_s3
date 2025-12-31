@@ -222,6 +222,7 @@ export default function TasksScreen() {
           longitude: task.longitude,
           priority: task.priority,
           location: task.location,
+          dueDate: task.dueDate || '',
           totalPotholes: task.totalPotholes,
           totalPatchy: task.totalPatchy,
         },
@@ -387,6 +388,13 @@ export default function TasksScreen() {
                 <Ionicons name="time-outline" size={16} color="#666" />
                 <Text style={styles.taskText}>{task.date} • {task.time}</Text>
               </View>
+
+              {!!task.dueDate && (
+                <View style={styles.taskInfo}>
+                  <Ionicons name="calendar-outline" size={16} color="#666" />
+                  <Text style={styles.taskText}>Due: {task.dueDate}</Text>
+                </View>
+              )}
 
               <View style={styles.taskInfo}>
                 <Ionicons name="location-outline" size={16} color="#666" />

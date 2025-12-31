@@ -74,13 +74,22 @@ export default function WorkScreen() {
         setPreWorkPhoto(uri);
         if (!workStarted) setWorkStarted(true);
 
-        // Use setTimeout to avoid call stack issues
-        setTimeout(() => {
-          router.replace({
-            pathname: '/tasks',
-            params: { taskId: id, preWorkPhoto: uri, action: 'START_WORK' },
-          });
-        }, 50);
+        // Upload pre-work photo to backend and store URL in DB
+        try {
+          const uploadRes = await uploadWorkPhoto(dbId || id, uri, 'pre');
+          const photoUrl = uploadRes?.data?.photoUrl || uploadRes?.data?.url || uploadRes?.data?.fileUrl || uploadRes?.data?.path;
+
+          // Navigate back and let TasksScreen set status to In Progress
+          setTimeout(() => {
+            router.replace({
+              pathname: '/tasks',
+              params: { taskId: id, dbId: dbId || id, preWorkPhoto: photoUrl || uri, action: 'START_WORK' },
+            });
+          }, 50);
+        } catch (e) {
+          console.error('Pre photo upload failed:', e);
+          Alert.alert('Upload failed', 'Could not upload pre-work photo. Please try again.');
+        }
       } else {
         setPostWorkPhoto(uri);
       }
@@ -126,12 +135,27 @@ export default function WorkScreen() {
     setIsSubmitting(true);
     
     try {
-      // Upload photos first if backend supports it
-      // For now, we'll just complete the job with photo references in notes
+      const jobId = dbId || id;
+
+      // Ensure post-work photo is uploaded and persisted
+      const postUploadRes = await uploadWorkPhoto(jobId, postWorkPhoto, 'post');
+      const postUrl = postUploadRes?.data?.photoUrl || postUploadRes?.data?.url || postUploadRes?.data?.fileUrl || postUploadRes?.data?.path;
+
+      // If preWorkPhoto is still a local URI, upload it too (best-effort)
+      let preUrl = preWorkPhoto;
+      if (preWorkPhoto && String(preWorkPhoto).startsWith('file:')) {
+        try {
+          const preUploadRes = await uploadWorkPhoto(jobId, preWorkPhoto, 'pre');
+          preUrl = preUploadRes?.data?.photoUrl || preUploadRes?.data?.url || preUploadRes?.data?.fileUrl || preUploadRes?.data?.path || preWorkPhoto;
+        } catch (_) {
+          // keep local URI in notes if upload fails
+        }
+      }
+
       const result = await completeJob(
-        dbId || id,
-        postWorkPhoto,
-        `Pre-work photo: ${preWorkPhoto}`
+        jobId,
+        postUrl || postWorkPhoto,
+        `Pre-work photo: ${preUrl}`
       );
 
       if (result.success) {
@@ -141,7 +165,7 @@ export default function WorkScreen() {
             onPress: () => {
               router.replace({
                 pathname: '/tasks',
-                params: { taskId: id, action: 'COMPLETE_WORK' },
+                params: { taskId: id, dbId: dbId || id, action: 'COMPLETE_WORK' },
               });
             },
           },

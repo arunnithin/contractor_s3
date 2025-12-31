@@ -16,7 +16,7 @@ import { getJobDetails, transformJobToTask } from '../services/jobsService';
 
 export default function TaskDetailsScreen() {
   const router = useRouter();
-  const { id, dbId, latitude, longitude, priority, location, totalPotholes, totalPatchy } = useLocalSearchParams();
+  const { id, dbId, latitude, longitude, priority, location, dueDate, totalPotholes, totalPatchy } = useLocalSearchParams();
   const [task, setTask] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -33,6 +33,7 @@ export default function TaskDetailsScreen() {
         status: 'Assigned',
         priority: priority || 'Medium',
         address: location || 'Location pending',
+        dueDate: (typeof dueDate === 'string' ? dueDate : Array.isArray(dueDate) ? dueDate[0] : '') || '',
         coordinates: `${latitude}, ${longitude}`,
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
@@ -205,6 +206,18 @@ export default function TaskDetailsScreen() {
             <Text style={styles.sectionValue}>{task.assignedDate}</Text>
             <Text style={styles.sectionSubValue}>{task.assignedTime}</Text>
           </View>
+
+          {!!task.dueDate && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.iconCircle}>
+                  <Ionicons name="calendar-outline" size={20} color="#FF6B35" />
+                </View>
+                <Text style={styles.sectionLabel}>Due Date</Text>
+              </View>
+              <Text style={styles.sectionValue}>{task.dueDate}</Text>
+            </View>
+          )}
 
           {/* DAMAGE INFO */}
           {(task.totalPotholes > 0 || task.totalPatchy > 0) && (

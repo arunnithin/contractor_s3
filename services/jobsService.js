@@ -139,6 +139,15 @@ export const getJobDetails = async (jobId) => {
  * Transform backend job data to app format
  */
 export const transformJobToTask = (job) => {
+  const dueDateObj = job?.due_date ? new Date(job.due_date) : null;
+  const dueDateText = dueDateObj && !Number.isNaN(dueDateObj.getTime())
+    ? dueDateObj.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : '';
+
   return {
     id: `JOB-${job.id}`,
     dbId: job.id,
@@ -151,6 +160,10 @@ export const transformJobToTask = (job) => {
       hour: '2-digit',
       minute: '2-digit',
     }),
+    dueDate: dueDateText,
+    dueDateRaw: job?.due_date || null,
+    preWorkPhotoUrl: job?.pre_work_photo_url || null,
+    postWorkPhotoUrl: job?.post_work_photo_url || null,
     latitude: job.latitude,
     longitude: job.longitude,
     location: job.grid_id || 'Location pending',
@@ -161,6 +174,9 @@ export const transformJobToTask = (job) => {
     totalPatchy: job.total_patchy || 0,
     notes: job.notes || '',
     aggregatedLocationId: job.aggregated_location_id,
+    // For screens that expect these keys
+    preWorkPhoto: job?.pre_work_photo_url || null,
+    postWorkPhoto: job?.post_work_photo_url || null,
   };
 };
 
