@@ -71,9 +71,10 @@ export const startWork = async (jobId, preWorkPhotoUrl = null) => {
  */
 export const completeJob = async (jobId, postWorkPhotoUrl = null, notes = '') => {
   const completionNotes = postWorkPhotoUrl 
-    ? `Work completed. Post-work photo: ${postWorkPhotoUrl}. ${notes}`
-    : `Work completed. ${notes}`;
-  return await updateJobStatus(jobId, 'completed', completionNotes);
+    ? `Work completed, pending verification. Post-work photo: ${postWorkPhotoUrl}. ${notes}`
+    : `Work completed, pending verification. ${notes}`;
+  // Set status to pending_verification so admin must verify before it shows as Completed
+  return await updateJobStatus(jobId, 'pending_verification', completionNotes);
 };
 
 /**
@@ -122,11 +123,29 @@ export const uploadWorkPhoto = async (jobId, photoUri, type = 'pre') => {
  * Get single job details
  */
 export const getJobDetails = async (jobId) => {
+  const normalizeJobId = (value) => {
+    if (value == null) return null;
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+
+    const text = String(value);
+    // Accept formats like: 123, "123", "JOB-123"
+    const match = text.match(/(\d+)/);
+    if (!match) return null;
+
+    const parsed = parseInt(match[1], 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  };
+
+  const normalizedId = normalizeJobId(jobId);
+
   // First get all jobs then find the specific one
   // Or implement a dedicated endpoint if available
   const result = await getJobs();
   if (result.success && result.data.jobs) {
-    const job = result.data.jobs.find(j => j.id === parseInt(jobId) || j.id === jobId);
+    const job = result.data.jobs.find(j => {
+      if (normalizedId != null && j.id === normalizedId) return true;
+      return String(j.id) === String(jobId);
+    });
     if (job) {
       return { success: true, data: { job } };
     }
@@ -139,6 +158,7 @@ export const getJobDetails = async (jobId) => {
  * Transform backend job data to app format
  */
 export const transformJobToTask = (job) => {
+  const backendStatus = job?.status ? String(job.status).toLowerCase() : null;
   const dueDateObj = job?.due_date ? new Date(job.due_date) : null;
   const dueDateText = dueDateObj && !Number.isNaN(dueDateObj.getTime())
     ? dueDateObj.toLocaleDateString('en-US', {
@@ -169,10 +189,13 @@ export const transformJobToTask = (job) => {
     location: job.grid_id || 'Location pending',
     priority: getSeverityPriority(job.highest_severity),
     status: transformStatus(job.status),
+    backendStatus,
+    awaitingApproval: backendStatus === 'pending_verification',
     accepted: job.status !== 'assigned',
     totalPotholes: job.total_potholes || 0,
     totalPatchy: job.total_patchy || 0,
     notes: job.notes || '',
+    remarks: job?.remarks || job?.admin_notes || '',
     aggregatedLocationId: job.aggregated_location_id,
     // For screens that expect these keys
     preWorkPhoto: job?.pre_work_photo_url || null,
@@ -204,10 +227,12 @@ const transformStatus = (status) => {
       return 'Assigned';
     case 'in_progress':
       return 'In Progress';
+    case 'pending_verification':
+      return 'Pending Verification';
     case 'completed':
-      return 'Completed';
     case 'verified':
-      return 'Verified';
+      // Only show as Completed after admin verification
+      return 'Completed';
     default:
       return 'Assigned';
   }

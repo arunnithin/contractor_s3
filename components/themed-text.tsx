@@ -1,6 +1,15 @@
-import { StyleSheet, Text, type TextProps } from 'react-native';
+import { StyleSheet, Text, type TextProps, Dimensions, PixelRatio } from 'react-native';
 
 import { useThemeColor } from '@/hooks/use-theme-color';
+
+// Responsive scaling for all device sizes
+const { width } = Dimensions.get('window');
+const baseWidth = 375;
+const minScale = 0.85;
+const maxScale = 1.35;
+const scaleRatio = Math.min(Math.max(width / baseWidth, minScale), maxScale);
+const fontScaleRatio = Math.min(PixelRatio.getFontScale(), 1.15);
+const fs = (size: number) => Math.round(Math.max(size * scaleRatio * fontScaleRatio, Math.max(size * 0.85, 11)));
 
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
@@ -35,26 +44,26 @@ export function ThemedText({
 
 const styles = StyleSheet.create({
   default: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: fs(16),
+    lineHeight: fs(24),
   },
   defaultSemiBold: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: fs(16),
+    lineHeight: fs(24),
     fontWeight: '600',
   },
   title: {
-    fontSize: 32,
+    fontSize: fs(32),
     fontWeight: 'bold',
-    lineHeight: 32,
+    lineHeight: fs(36),
   },
   subtitle: {
-    fontSize: 20,
+    fontSize: fs(20),
     fontWeight: 'bold',
   },
   link: {
-    lineHeight: 30,
-    fontSize: 16,
+    lineHeight: fs(30),
+    fontSize: fs(16),
     color: '#0a7ea4',
   },
 });

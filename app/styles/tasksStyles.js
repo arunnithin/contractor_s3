@@ -1,11 +1,26 @@
-import { StyleSheet, Dimensions } from 'react-native';
+import { StyleSheet, Dimensions, PixelRatio } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
-const scale = width / 375; // base width for scaling
-const verticalScale = height / 812; // base height for scaling
+const baseWidth = 375;
+const baseHeight = 812;
 
-const rs = (size) => Math.round(size * scale); // horizontal scaling
-const vs = (size) => Math.round(size * verticalScale); // vertical scaling
+// Support screens as small as 320px (iPhone SE, older Android)
+const minScale = 0.85;
+const maxScale = 1.35;
+
+// Responsive scaling with min/max limits for all screen sizes
+const scale = Math.min(Math.max(width / baseWidth, minScale), maxScale);
+const verticalScale = Math.min(Math.max(height / baseHeight, 0.78), 1.25);
+const fontScale = Math.min(PixelRatio.getFontScale(), 1.15); // Cap system font scaling
+
+// Horizontal scaling with limits
+const rs = (size) => Math.round(Math.max(size * scale, size * minScale));
+// Vertical scaling with limits  
+const vs = (size) => Math.round(Math.max(size * verticalScale, size * 0.75));
+// Font scaling - ensures minimum readable size (11px minimum)
+const fs = (size) => Math.round(Math.max(size * scale * fontScale, Math.max(size * 0.85, 11)));
+// Moderate scaling (less aggressive, good for paddings)
+const ms = (size, factor = 0.5) => Math.round(size + (rs(size) - size) * factor);
 
 const styles = StyleSheet.create({
   container: {
@@ -20,23 +35,27 @@ const styles = StyleSheet.create({
     top: vs(15),
     paddingTop: vs(16),
     paddingBottom: vs(20),
-    paddingHorizontal: rs(20),
+    paddingHorizontal: rs(16),
+    paddingRight: rs(56),
     backgroundColor: '#FFFFFF',
   },
 
   title: {
-    fontSize: rs(32),
+    fontSize: fs(28),
     fontWeight: '700',
     color: '#11181C',
-    marginBottom: vs(6),
+    marginBottom: vs(4),
     letterSpacing: -0.5,
+    flexShrink: 1,
   },
 
   welcomeText: {
-    fontSize: rs(16),
+    fontSize: fs(14),
     bottom: vs(2),
     color: '#666666',
     fontWeight: '400',
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
 
   logoutButton: {
@@ -78,7 +97,7 @@ const styles = StyleSheet.create({
   },
 
   filterText: {
-    fontSize: rs(15),
+    fontSize: fs(15),
     color: '#666666',
     fontWeight: '500',
     letterSpacing: 0.2,
@@ -91,7 +110,7 @@ const styles = StyleSheet.create({
 
   taskCount: {
     top: vs(6.5),
-    fontSize: rs(14),
+    fontSize: fs(14),
     color: '#999999',
     paddingHorizontal: rs(20),
     marginBottom: vs(16),
@@ -123,24 +142,36 @@ const styles = StyleSheet.create({
   },
 
   taskId: {
-    fontSize: rs(22),
+    fontSize: fs(18),
     fontWeight: '700',
     color: '#11181C',
     letterSpacing: -0.3,
+    marginRight: rs(80),
+    flexShrink: 1,
+  },
+
+  taskDetails: {
+    fontSize: fs(14),
+    color: '#FF6B35',
+    fontWeight: '600',
+    marginTop: vs(20),
   },
 
   taskInfo: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: vs(10),
-    gap: rs(10),
+    alignItems: 'flex-start',
+    marginBottom: vs(8),
+    gap: rs(8),
+    flexWrap: 'wrap',
   },
 
   taskText: {
-    fontSize: rs(15),
+    fontSize: fs(13),
     color: '#666666',
-    lineHeight: vs(20),
+    lineHeight: fs(18),
     flexShrink: 1,
+    flex: 1,
+    minWidth: rs(80),
   },
 
   taskFooter: {
@@ -151,6 +182,30 @@ const styles = StyleSheet.create({
     paddingTop: vs(16),
     borderTopWidth: 1,
     borderTopColor: '#F0F0F0',
+  },
+
+  proofRow: {
+    flexDirection: 'row',
+    gap: rs(12),
+    marginTop: vs(6),
+    marginBottom: vs(6),
+  },
+  proofItem: {
+    flex: 1,
+  },
+  proofLabel: {
+    fontSize: fs(12),
+    color: '#666666',
+    marginBottom: vs(6),
+    fontWeight: '600',
+  },
+  proofThumb: {
+    width: '100%',
+    aspectRatio: 1.2,
+    minHeight: vs(70),
+    maxHeight: vs(120),
+    borderRadius: rs(12),
+    backgroundColor: '#EEE',
   },
 
   badges: {
@@ -169,44 +224,45 @@ const styles = StyleSheet.create({
   },
 
   badgeText: {
-    fontSize: rs(12),
+    fontSize: fs(11),
     fontWeight: '600',
     letterSpacing: 0.2,
   },
 
   statusDot: {
-    width: rs(7),
-    height: rs(7),
-    borderRadius: rs(3.5),
+    width: rs(6),
+    height: rs(6),
+    borderRadius: rs(3),
   },
 
   badge1: {
     position: 'absolute',
-    right: rs(15),
-    top: vs(15),
+    right: rs(12),
+    top: vs(12),
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: rs(10),
-    paddingVertical: vs(6),
-    borderRadius: rs(16),
-    height: vs(32),
-    gap: rs(6),
+    paddingHorizontal: rs(8),
+    paddingVertical: vs(5),
+    borderRadius: rs(12),
+    maxWidth: '45%',
+    gap: rs(8),
   },
 
   badgeText1: {
-    fontSize: rs(12.5),
+    fontSize: fs(11),
     fontWeight: '600',
     letterSpacing: 0.2,
+    flexShrink: 1,
   },
 
   statusDot1: {
-    width: rs(7),
-    height: rs(7),
-    borderRadius: rs(3.5),
+    width: rs(6),
+    height: rs(6),
+    borderRadius: rs(3),
   },
 
   viewDetails: {
-    fontSize: rs(15),
+    fontSize: fs(13),
     color: '#11181C',
     fontWeight: '600',
     letterSpacing: 0.2,
@@ -226,20 +282,20 @@ const styles = StyleSheet.create({
 
   acceptText: {
     color: '#1E7D32',
-    fontSize: rs(14),
+    fontSize: fs(12),
     fontWeight: '600',
   },
 
   rejectButton: {
     backgroundColor: '#FDE8E8',
-    paddingHorizontal: rs(14),
-    paddingVertical: vs(7),
-    borderRadius: rs(10),
+    paddingHorizontal: rs(12),
+    paddingVertical: vs(6),
+    borderRadius: rs(8),
   },
 
   rejectText: {
     color: '#C62828',
-    fontSize: rs(14),
+    fontSize: fs(12),
     fontWeight: '600',
   },
 
@@ -279,26 +335,26 @@ const styles = StyleSheet.create({
   },
 
   modalTitle: {
-    fontSize: rs(20),
+    fontSize: fs(20),
     fontWeight: '700',
     color: '#11181C',
     marginBottom: vs(6),
   },
 
   modalSubtitle: {
-    fontSize: rs(14),
+    fontSize: fs(14),
     color: '#666666',
     marginBottom: vs(14),
-    lineHeight: vs(20),
+    lineHeight: fs(20),
   },
 
   modalInput: {
     borderWidth: 1,
     borderColor: '#E0E0E0',
     borderRadius: rs(12),
-    padding: vs(14),
+    padding: ms(14),
     minHeight: vs(90),
-    fontSize: rs(15),
+    fontSize: fs(15),
     color: '#11181C',
     textAlignVertical: 'top',
     backgroundColor: '#FAFAFA',
@@ -312,13 +368,13 @@ const styles = StyleSheet.create({
   },
 
   modalCancelText: {
-    fontSize: rs(15),
+    fontSize: fs(15),
     color: '#1752f6ff',
     fontWeight: '600',
   },
 
   modalRejectText: {
-    fontSize: rs(15),
+    fontSize: fs(15),
     fontWeight: '700',
     color: '#C62828',
   },
@@ -327,20 +383,27 @@ const styles = StyleSheet.create({
     color: '#BDBDBD',
   },
 
+  filterTabsScroll: {
+    marginVertical: vs(12),
+    marginHorizontal: rs(14),
+    maxHeight: vs(52),
+  },
+
   filterTabs: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginVertical: vs(12),
-    marginHorizontal: rs(16),
+    alignItems: 'center',
     borderRadius: rs(12),
     backgroundColor: '#f0f0f0',
-    paddingVertical: vs(6),
+    paddingVertical: vs(5),
+    paddingHorizontal: rs(5),
+    gap: rs(4),
   },
 
   filterTab: {
-    paddingVertical: vs(6),
+    paddingVertical: vs(10),
     paddingHorizontal: rs(16),
-    borderRadius: rs(12),
+    borderRadius: rs(10),
+    minWidth: rs(70),
   },
 
   activeFilterTab: {
@@ -348,10 +411,11 @@ const styles = StyleSheet.create({
   },
 
   filterTabText: {
-    fontSize: rs(14),
+    fontSize: fs(14),
     color: '#666',
     fontWeight: '500',
     textAlign: 'center',
+    includeFontPadding: false,
   },
 
   activeFilterTabText: {
@@ -369,7 +433,7 @@ const styles = StyleSheet.create({
 
   loadingText: {
     marginTop: vs(12),
-    fontSize: rs(16),
+    fontSize: fs(16),
     color: '#666',
   },
 
@@ -378,19 +442,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: vs(80),
+    paddingHorizontal: rs(20),
   },
 
   emptyText: {
     marginTop: vs(16),
-    fontSize: rs(18),
+    fontSize: fs(18),
     fontWeight: '600',
     color: '#333',
+    textAlign: 'center',
   },
 
   emptySubText: {
     marginTop: vs(8),
-    fontSize: rs(14),
+    fontSize: fs(14),
     color: '#999',
+    textAlign: 'center',
   },
 });
 

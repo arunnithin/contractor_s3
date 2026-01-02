@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, Dimensions, PixelRatio } from 'react-native';
 
 import { Collapsible } from '@/components/ui/collapsible';
 import { ExternalLink } from '@/components/external-link';
@@ -8,6 +8,17 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Fonts } from '@/constants/theme';
+
+// Responsive scaling for all device sizes
+const { width, height } = Dimensions.get('window');
+const baseWidth = 375;
+const baseHeight = 812;
+const minScale = 0.85;
+const maxScale = 1.35;
+const scaleRatio = Math.min(Math.max(width / baseWidth, minScale), maxScale);
+const verticalRatio = Math.min(Math.max(height / baseHeight, 0.78), 1.25);
+const rs = (size: number) => Math.round(Math.max(size * scaleRatio, size * minScale));
+const vs = (size: number) => Math.round(Math.max(size * verticalRatio, size * 0.75));
 
 export default function TabTwoScreen() {
   return (
@@ -101,12 +112,13 @@ export default function TabTwoScreen() {
 const styles = StyleSheet.create({
   headerImage: {
     color: '#808080',
-    bottom: -90,
-    left: -35,
+    bottom: vs(-90),
+    left: rs(-35),
     position: 'absolute',
   },
   titleContainer: {
     flexDirection: 'row',
-    gap: 8,
+    gap: rs(8),
+    flexWrap: 'wrap',
   },
 });

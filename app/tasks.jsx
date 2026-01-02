@@ -4,13 +4,14 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
+  Image,
   Modal,
   TextInput,
   ActivityIndicator,
   RefreshControl,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -110,9 +111,9 @@ export default function TasksScreen() {
           markInProgress(routeTaskId, routeDbId, routePreWorkPhoto ?? null);
         }
 
-        if (routeAction === 'COMPLETE_WORK') {
-          updateTaskStatusLocal(routeTaskId, 'Completed', routeDbId);
-        }
+        // COMPLETE_WORK: Task is now pending_verification, keep it in "In Progress" until admin verifies
+        // The server already set status to pending_verification, just refresh to get latest state
+        // (No local status override - let loadTasks() fetch the real status from server)
       }
 
       // Always refresh on focus
@@ -122,6 +123,16 @@ export default function TasksScreen() {
 
   // --- MARK IN PROGRESS ---
   const markInProgress = async (taskId, dbId, prePhoto = null) => {
+    const normalizeDbId = (value) => {
+      if (value == null) return null;
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      const text = String(value);
+      const match = text.match(/(\d+)/);
+      if (!match) return null;
+      const parsed = parseInt(match[1], 10);
+      return Number.isNaN(parsed) ? null : parsed;
+    };
+
     const matchByIdOrDbId = (t) => {
       if (taskId != null && String(t.id) === String(taskId)) return true;
       if (dbId != null && String(t.dbId) === String(dbId)) return true;
@@ -129,7 +140,7 @@ export default function TasksScreen() {
     };
 
     const task = tasks.find(matchByIdOrDbId);
-    const jobDbId = dbId ?? task?.dbId;
+    const jobDbId = normalizeDbId(dbId) ?? task?.dbId ?? normalizeDbId(taskId);
 
     if (!jobDbId) {
       Alert.alert('Error', 'Task not found to start work');
@@ -212,6 +223,17 @@ export default function TasksScreen() {
       return;
     }
 
+    if (task.status === 'Pending Verification' || task.backendStatus === 'pending_verification') {
+      router.push({
+        pathname: '/task-details',
+        params: {
+          id: task.id,
+          dbId: task.dbId,
+        },
+      });
+      return;
+    }
+
     if (task.status === 'Assigned' && task.accepted) {
       router.push({
         pathname: '/task-details',
@@ -279,15 +301,15 @@ export default function TasksScreen() {
     case 'All':
       // Show only Assigned and In Progress tasks
       return tasks
-        .filter(t => t.status === 'Assigned' || t.status === 'In Progress')
+        .filter(t => t.status === 'Assigned' || t.status === 'In Progress' || t.status === 'Pending Verification')
         .sort((a, b) => {
-          const order = { Assigned: 0, 'In Progress': 1 };
+          const order = { Assigned: 0, 'In Progress': 1, 'Pending Verification': 2 };
           return order[a.status] - order[b.status];
         });
     case 'Assigned':
       return tasks.filter(t => t.status === 'Assigned' && !t.accepted);
     case 'In Progress':
-      return tasks.filter(t => t.status === 'In Progress' && t.accepted);
+      return tasks.filter(t => (t.status === 'In Progress' || t.status === 'Pending Verification') && t.accepted);
     case 'Completed':
       return tasks.filter(t => t.status === 'Completed' && t.accepted);
     default:
@@ -309,6 +331,7 @@ export default function TasksScreen() {
     switch (status) {
       case 'Assigned': return { bg: '#E5F0FF', text: '#0066FF', dot: '#0066FF' };
       case 'In Progress': return { bg: '#FFF4E5', text: '#FF8800', dot: '#FF8800' };
+      case 'Pending Verification': return { bg: '#FFF4E5', text: '#FF8800', dot: '#FF8800' };
       case 'Completed': return { bg: '#E5F0FF', text: '#44AA44', dot: '#44AA44' };
       case 'Rejected': return { bg: '#FFE5E5', text: '#FF4444', dot: '#FF4444' };
       default: return { bg: '#E5F0FF', text: '#0066FF', dot: '#0066FF' };
@@ -329,7 +352,12 @@ export default function TasksScreen() {
       </View>
 
       {/* FILTER TABS */}
-      <View style={styles.filterTabs}>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false} 
+        style={styles.filterTabsScroll}
+        contentContainerStyle={styles.filterTabs}
+      >
         {['All', 'Assigned', 'In Progress', 'Completed'].map(filter => (
           <TouchableOpacity
             key={filter}
@@ -341,7 +369,7 @@ export default function TasksScreen() {
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       {/* LOADING INDICATOR */}
       {isLoading && !isRefreshing && (
@@ -374,6 +402,9 @@ export default function TasksScreen() {
         {filteredTasks().map(task => {
           const priorityStyle = getPriorityColor(task.priority);
           const statusStyle = getStatusColor(task.status);
+          const prePhotoUri = task.preWorkPhotoUrl || task.preWorkPhoto || null;
+          const postPhotoUri = task.postWorkPhotoUrl || task.postWorkPhoto || null;
+          const showPendingProof = !!task.awaitingApproval && !!prePhotoUri && !!postPhotoUri;
 
           return (
             <View key={task.id} style={styles.taskCard}>
@@ -384,7 +415,8 @@ export default function TasksScreen() {
 
               <Text style={styles.taskId}>{task.id}</Text>
 
-              <View style={styles.taskInfo}>
+              <View style={styles.taskDetails}>
+                <View style={styles.taskInfo}>
                 <Ionicons name="time-outline" size={16} color="#666" />
                 <Text style={styles.taskText}>{task.date} • {task.time}</Text>
               </View>
@@ -400,6 +432,34 @@ export default function TasksScreen() {
                 <Ionicons name="location-outline" size={16} color="#666" />
                 <Text style={styles.taskText}>{task.location}</Text>
               </View>
+
+              {!!task.awaitingApproval && (
+                <View style={styles.taskInfo}>
+                  <Ionicons name="hourglass-outline" size={16} color="#666" />
+                  <Text style={styles.taskText}>Waiting for admin approval</Text>
+                </View>
+              )}
+
+              {!!task.remarks && task.status === 'In Progress' && (
+                <View style={styles.taskInfo}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={16} color="#666" />
+                  <Text style={styles.taskText}>{task.remarks}</Text>
+                </View>
+              )}
+              </View>
+
+              {showPendingProof && (
+                <View style={styles.proofRow}>
+                  <View style={styles.proofItem}>
+                    <Text style={styles.proofLabel}>Pre</Text>
+                    <Image source={{ uri: prePhotoUri }} style={styles.proofThumb} />
+                  </View>
+                  <View style={styles.proofItem}>
+                    <Text style={styles.proofLabel}>Post</Text>
+                    <Image source={{ uri: postPhotoUri }} style={styles.proofThumb} />
+                  </View>
+                </View>
+              )}
 
               <View style={styles.taskFooter}>
                 <View style={styles.badges}>
@@ -421,10 +481,12 @@ export default function TasksScreen() {
                   </View>
                 )}
 
-                {task.status !== 'Rejected' && !(task.status === 'Assigned' && !task.accepted) && (
+                {activeFilter !== 'Completed' &&
+                  task.status !== 'Rejected' &&
+                  !(task.status === 'Assigned' && !task.accepted) && (
                   <TouchableOpacity onPress={() => handleTaskPress(task)}>
                     <Text style={styles.viewDetails}>
-                      {task.status === 'In Progress' ? 'Update ›' : 'View Details ›'}
+                      {task.status === 'In Progress' && !task.awaitingApproval ? 'Update ›' : 'View Details ›'}
                     </Text>
                   </TouchableOpacity>
                 )}

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Image,
   Alert,
@@ -12,11 +11,12 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import styles from './styles/workScreenStyles';
-import { completeJob, uploadWorkPhoto } from '../services/jobsService';
+import { completeJob, uploadWorkPhoto, getJobDetails, transformJobToTask } from '../services/jobsService';
 
 export default function WorkScreen() {
   const router = useRouter();
@@ -26,6 +26,7 @@ export default function WorkScreen() {
   const [postWorkPhoto, setPostWorkPhoto] = useState(null);
   const [workStarted, setWorkStarted] = useState(!!savedPrePhoto);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPendingVerification, setIsPendingVerification] = useState(false);
 
   // 🔒 BACK → TASKS ALWAYS
   useEffect(() => {
@@ -34,6 +35,7 @@ export default function WorkScreen() {
         pathname: '/tasks',
         params: {
           taskId: id,
+          dbId: dbId || id,
           preWorkPhoto,
           action: 'START_WORK',
         },
@@ -43,7 +45,7 @@ export default function WorkScreen() {
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
-  }, [preWorkPhoto, id]);
+  }, [preWorkPhoto, id, dbId]);
 
   // ⚡ Permissions
   useEffect(() => {
@@ -55,6 +57,31 @@ export default function WorkScreen() {
       }
     })();
   }, []);
+
+  // 🔄 Hydrate status/photos from backend (handles Pending Verification state)
+  useEffect(() => {
+    const hydrate = async () => {
+      try {
+        const jobId = dbId || id;
+        const result = await getJobDetails(jobId);
+        if (result?.success && result?.data?.job) {
+          const task = transformJobToTask(result.data.job);
+          const pending = task?.backendStatus === 'pending_verification' || task?.status === 'Pending Verification';
+          setIsPendingVerification(!!pending);
+
+          // Fill previews from backend if we don't already have them
+          if (!preWorkPhoto && task?.preWorkPhotoUrl) setPreWorkPhoto(task.preWorkPhotoUrl);
+          if (!postWorkPhoto && task?.postWorkPhotoUrl) setPostWorkPhoto(task.postWorkPhotoUrl);
+          if (task?.preWorkPhotoUrl) setWorkStarted(true);
+        }
+      } catch (e) {
+        // Non-blocking
+      }
+    };
+
+    hydrate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, dbId]);
 
   // 📸 PICK IMAGE
   const pickImage = async (source, target) => {
@@ -100,6 +127,7 @@ export default function WorkScreen() {
   };
 
   const handlePickOption = (target) => {
+    if (isPendingVerification || isSubmitting) return;
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
@@ -187,7 +215,7 @@ export default function WorkScreen() {
         <Text style={styles.screenTitle}>Work in Progress</Text>
         <Text style={styles.taskId}>Task ID: {id}</Text>
         <Text style={styles.statusText}>
-          Status: {'In Progress'}
+          Status: {isPendingVerification ? 'Pending Verification' : 'In Progress'}
         </Text>
 
         {/* PRE-WORK */}
@@ -218,11 +246,13 @@ export default function WorkScreen() {
         <TouchableOpacity
           style={[
             styles.finishButton,
-            preWorkPhoto && postWorkPhoto && !isSubmitting
-              ? { backgroundColor: '#FF6B35' }
-              : { backgroundColor: '#F0F0F0' },
+            isPendingVerification
+              ? { backgroundColor: '#F0F0F0' }
+              : preWorkPhoto && postWorkPhoto && !isSubmitting
+                ? { backgroundColor: '#FF6B35' }
+                : { backgroundColor: '#F0F0F0' },
           ]}
-          disabled={!preWorkPhoto || !postWorkPhoto || isSubmitting}
+          disabled={isPendingVerification || !preWorkPhoto || !postWorkPhoto || isSubmitting}
           onPress={finishWork}
         >
           {isSubmitting ? (
@@ -231,10 +261,10 @@ export default function WorkScreen() {
             <Text
               style={[
                 styles.finishButtonText,
-                preWorkPhoto && postWorkPhoto ? { color: '#fff' } : { color: '#B0B0B0' },
+                !isPendingVerification && preWorkPhoto && postWorkPhoto ? { color: '#fff' } : { color: '#B0B0B0' },
               ]}
             >
-              Finish Work
+              {isPendingVerification ? 'Pending Verification' : 'Finish Work'}
             </Text>
           )}
         </TouchableOpacity>

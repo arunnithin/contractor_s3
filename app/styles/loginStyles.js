@@ -1,11 +1,24 @@
-import { StyleSheet, Dimensions } from 'react-native';
+import { StyleSheet, Dimensions, PixelRatio } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
+const baseWidth = 375;
+const baseHeight = 812;
 
-// Scale functions
-const scale = (size) => (width / 375) * size; // 375 is base width
-const verticalScale = (size) => (height / 812) * size; // 812 is base height
-const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * factor;
+// Support screens as small as 320px (iPhone SE, older Android)
+const minScale = 0.85;
+const maxScale = 1.35;
+
+// Responsive scaling with min/max limits for all screen sizes
+const scaleRatio = Math.min(Math.max(width / baseWidth, minScale), maxScale);
+const verticalRatio = Math.min(Math.max(height / baseHeight, 0.78), 1.25);
+const fontScaleRatio = Math.min(PixelRatio.getFontScale(), 1.15);
+
+// Scale functions with limits
+const scale = (size) => Math.round(Math.max(size * scaleRatio, size * minScale));
+const verticalScale = (size) => Math.round(Math.max(size * verticalRatio, size * 0.75));
+const moderateScale = (size, factor = 0.5) => Math.round(size + (scale(size) - size) * factor);
+// Font scaling - ensures minimum readable size (11px minimum)
+const fontScale = (size) => Math.round(Math.max(size * scaleRatio * fontScaleRatio, Math.max(size * 0.85, 11)));
 
 const styles = StyleSheet.create({
   container: {
@@ -15,22 +28,22 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingVertical: verticalScale(32),
-    paddingHorizontal: scale(20),
+    paddingVertical: verticalScale(24),
+    paddingHorizontal: scale(16),
   },
   header: {
     alignItems: 'center',
-    paddingTop: verticalScale(16),
-    marginBottom: verticalScale(48),
+    paddingTop: verticalScale(12),
+    marginBottom: verticalScale(32),
   },
   iconContainer: {
-    width: scale(88),
-    height: scale(88),
-    borderRadius: scale(20),
+    width: scale(72),
+    height: scale(72),
+    borderRadius: scale(16),
     backgroundColor: '#FFF4F0',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: verticalScale(24),
+    marginBottom: verticalScale(18),
     shadowColor: '#FF6B35',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -38,24 +51,26 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   title: {
-    fontSize: moderateScale(32),
+    fontSize: Math.max(fontScale(24), 20),
     fontWeight: '700',
     color: '#11181C',
-    marginBottom: verticalScale(10),
+    marginBottom: verticalScale(8),
     letterSpacing: -0.5,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: moderateScale(16),
+    fontSize: Math.max(fontScale(13), 11),
     color: '#666666',
     textAlign: 'center',
-    lineHeight: moderateScale(22),
-    paddingHorizontal: scale(20),
+    lineHeight: Math.max(fontScale(18), 16),
+    paddingHorizontal: scale(12),
+    flexWrap: 'wrap',
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: scale(20),
-    padding: scale(24),
-    marginBottom: verticalScale(24),
+    borderRadius: scale(16),
+    padding: scale(18),
+    marginBottom: verticalScale(20),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
@@ -65,68 +80,71 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 0, 0, 0.04)',
   },
   inputContainer: {
-    marginBottom: verticalScale(24),
+    marginBottom: verticalScale(18),
   },
   label: {
-    fontSize: moderateScale(14),
+    fontSize: Math.max(fontScale(13), 11),
     fontWeight: '600',
     color: '#11181C',
-    marginBottom: verticalScale(10),
+    marginBottom: verticalScale(8),
     letterSpacing: 0.2,
   },
   input: {
     borderWidth: 1.5,
     borderColor: '#E5E5E5',
-    borderRadius: scale(10),
-    padding: verticalScale(14),
-    paddingHorizontal: scale(16),
-    fontSize: moderateScale(16),
+    borderRadius: scale(8),
+    padding: verticalScale(12),
+    paddingHorizontal: scale(14),
+    fontSize: Math.max(fontScale(14), 13),
     color: '#11181C',
     backgroundColor: '#FFFFFF',
+    minHeight: verticalScale(44),
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: '#E5E5E5',
-    borderRadius: scale(10),
+    borderRadius: scale(8),
     backgroundColor: '#FFFFFF',
   },
   passwordInput: {
     flex: 1,
-    padding: verticalScale(14),
-    paddingHorizontal: scale(16),
-    fontSize: moderateScale(16),
+    padding: verticalScale(12),
+    paddingHorizontal: scale(14),
+    fontSize: Math.max(fontScale(14), 13),
     color: '#11181C',
+    minHeight: verticalScale(44),
   },
   eyeIcon: {
-    padding: verticalScale(14),
-    paddingHorizontal: scale(16),
+    padding: verticalScale(12),
+    paddingHorizontal: scale(14),
   },
   signInButton: {
     backgroundColor: '#FF6B35',
-    borderRadius: scale(14),
-    padding: verticalScale(18),
-    paddingHorizontal: scale(24),
+    borderRadius: scale(12),
+    padding: verticalScale(14),
+    paddingHorizontal: scale(20),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: verticalScale(20),
+    marginBottom: verticalScale(16),
     shadowColor: '#FF6B35',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
     shadowRadius: 20,
     elevation: 8,
+    minHeight: verticalScale(48),
   },
   signInButtonDisabled: {
     opacity: 0.7,
   },
   buttonIcon: {
-    marginRight: scale(10),
+    marginRight: scale(8),
   },
   signInText: {
     color: '#FFFFFF',
-    fontSize: moderateScale(18),
+    fontSize: Math.max(fontScale(16), 14),
     fontWeight: '700',
     letterSpacing: 0.3,
   },
@@ -135,31 +153,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FEF2F2',
     borderRadius: scale(8),
-    padding: verticalScale(12),
-    marginTop: verticalScale(12),
-    gap: scale(8),
+    padding: verticalScale(10),
+    marginTop: verticalScale(10),
+    gap: scale(6),
   },
   errorText: {
     color: '#EF4444',
-    fontSize: moderateScale(14),
+    fontSize: Math.max(fontScale(12), 11),
     flex: 1,
+    flexWrap: 'wrap',
   },
   demoBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F8F8F8',
-    borderRadius: scale(10),
-    padding: verticalScale(14),
-    paddingHorizontal: scale(16),
-    gap: scale(10),
+    borderRadius: scale(8),
+    padding: verticalScale(12),
+    paddingHorizontal: scale(14),
+    gap: scale(8),
     borderWidth: 1,
     borderColor: '#EEEEEE',
+    flexWrap: 'wrap',
   },
   demoText: {
-    fontSize: moderateScale(14),
+    fontSize: Math.max(fontScale(12), 11),
     color: '#666666',
     fontWeight: '500',
+    textAlign: 'center',
   },
 });
 

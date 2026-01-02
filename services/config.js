@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // API Configuration - Change this to your server IP
 export const API_BASE_URL = Platform.OS === 'web' 
   ? 'http://localhost:5000/api'  // For web
-  : 'http://10.98.195.252:5000/api';  // For mobile devices - Update this IP to match your server
+  : 'http://192.168.43.67:5000/api';  // For mobile devices - Update this IP to match your server
 
 // Storage Keys
 export const STORAGE_KEYS = {

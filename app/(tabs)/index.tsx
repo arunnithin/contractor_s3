@@ -1,11 +1,22 @@
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, Dimensions, PixelRatio } from 'react-native';
 
 import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Link } from 'expo-router';
+
+// Responsive scaling for all device sizes
+const { width, height } = Dimensions.get('window');
+const baseWidth = 375;
+const baseHeight = 812;
+const minScale = 0.85;
+const maxScale = 1.35;
+const scaleRatio = Math.min(Math.max(width / baseWidth, minScale), maxScale);
+const verticalRatio = Math.min(Math.max(height / baseHeight, 0.78), 1.25);
+const rs = (size: number) => Math.round(Math.max(size * scaleRatio, size * minScale));
+const vs = (size: number) => Math.round(Math.max(size * verticalRatio, size * 0.75));
 
 export default function HomeScreen() {
   return (
@@ -82,15 +93,16 @@ const styles = StyleSheet.create({
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: rs(8),
+    flexWrap: 'wrap',
   },
   stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+    gap: vs(8),
+    marginBottom: vs(8),
   },
   reactLogo: {
-    height: 178,
-    width: 290,
+    height: vs(178),
+    width: rs(290),
     bottom: 0,
     left: 0,
     position: 'absolute',

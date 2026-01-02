@@ -3,11 +3,12 @@ import {
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
+  Image,
   Linking,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
@@ -143,6 +144,23 @@ export default function TaskDetailsScreen() {
     });
   };
 
+  const isPendingVerification =
+    task?.awaitingApproval ||
+    task?.backendStatus === 'pending_verification' ||
+    task?.status === 'Pending Verification';
+
+  const isCompleted = task?.status === 'Completed';
+
+  const startWorkButtonLabel = isPendingVerification
+    ? 'Pending Verification'
+    : isCompleted
+      ? 'Completed'
+      : task?.status === 'In Progress'
+        ? 'Continue Work'
+        : 'Start Work';
+
+  const startWorkButtonDisabled = isPendingVerification || isCompleted;
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -167,7 +185,7 @@ export default function TaskDetailsScreen() {
             <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
               <View style={[styles.statusDot, { backgroundColor: statusStyle.dot }]} />
               <Text style={[styles.statusText, { color: statusStyle.text }]}>
-                Assigned
+                {task.status}
               </Text>
             </View>
 
@@ -219,6 +237,46 @@ export default function TaskDetailsScreen() {
             </View>
           )}
 
+          {!!task.remarks && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.iconCircle}>
+                  <Ionicons name="chatbubble-ellipses" size={20} color="#FF6B35" />
+                </View>
+                <Text style={styles.sectionLabel}>Admin Remarks</Text>
+              </View>
+              <Text style={styles.sectionValue}>{task.remarks}</Text>
+            </View>
+          )}
+
+          {/* PROOF PHOTOS */}
+          {(!!task.preWorkPhotoUrl || !!task.postWorkPhotoUrl) && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.iconCircle}>
+                  <Ionicons name="image" size={20} color="#FF6B35" />
+                </View>
+                <Text style={styles.sectionLabel}>Work Photos</Text>
+              </View>
+
+              <View style={styles.proofGrid}>
+                {!!task.preWorkPhotoUrl && (
+                  <View style={styles.proofItem}>
+                    <Text style={styles.proofLabel}>Pre-Work</Text>
+                    <Image source={{ uri: task.preWorkPhotoUrl }} style={styles.proofImage} />
+                  </View>
+                )}
+
+                {!!task.postWorkPhotoUrl && (
+                  <View style={styles.proofItem}>
+                    <Text style={styles.proofLabel}>Post-Work</Text>
+                    <Image source={{ uri: task.postWorkPhotoUrl }} style={styles.proofImage} />
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
           {/* DAMAGE INFO */}
           {(task.totalPotholes > 0 || task.totalPatchy > 0) && (
             <View style={styles.section}>
@@ -228,14 +286,14 @@ export default function TaskDetailsScreen() {
                 </View>
                 <Text style={styles.sectionLabel}>Damage Report</Text>
               </View>
-              <View style={{ flexDirection: 'row', gap: 16, marginTop: 8 }}>
-                <View style={{ alignItems: 'center', flex: 1, backgroundColor: '#FFE5E5', padding: 12, borderRadius: 8 }}>
-                  <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#EF4444' }}>{task.totalPotholes || 0}</Text>
-                  <Text style={{ fontSize: 12, color: '#666' }}>Potholes</Text>
+              <View style={styles.damageRow}>
+                <View style={styles.damageBoxPothole}>
+                  <Text style={styles.damageCount}>{task.totalPotholes || 0}</Text>
+                  <Text style={styles.damageLabel}>Potholes</Text>
                 </View>
-                <View style={{ alignItems: 'center', flex: 1, backgroundColor: '#E5F0FF', padding: 12, borderRadius: 8 }}>
-                  <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#6366F1' }}>{task.totalPatchy || 0}</Text>
-                  <Text style={{ fontSize: 12, color: '#666' }}>Patchy Areas</Text>
+                <View style={styles.damageBoxPatchy}>
+                  <Text style={[styles.damageCount, { color: '#6366F1' }]}>{task.totalPatchy || 0}</Text>
+                  <Text style={styles.damageLabel}>Patchy Areas</Text>
                 </View>
               </View>
             </View>
@@ -276,11 +334,16 @@ export default function TaskDetailsScreen() {
           <Text style={styles.buttonText1}>Navigate in Google Maps</Text>
         </TouchableOpacity>
 
-        {/* START WORK */}
-        <TouchableOpacity style={styles.startWorkButton} onPress={handleStartWork}>
-          <Ionicons name="play" size={20} color="#000" />
-          <Text style={styles.buttonText2}>Start Work</Text>
-        </TouchableOpacity>
+        {/* START / CONTINUE (hidden while Pending Verification) */}
+        {!isPendingVerification && !isCompleted && (
+          <TouchableOpacity
+            style={styles.startWorkButton}
+            onPress={handleStartWork}
+          >
+            <Ionicons name="play" size={20} color="#000" />
+            <Text style={styles.buttonText2}>{startWorkButtonLabel}</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
