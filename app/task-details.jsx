@@ -17,7 +17,7 @@ import { getJobDetails, transformJobToTask } from '../services/jobsService';
 
 export default function TaskDetailsScreen() {
   const router = useRouter();
-  const { id, dbId, latitude, longitude, priority, location, dueDate, totalPotholes, totalPatchy } = useLocalSearchParams();
+  const { id, dbId, latitude, longitude, priority, location, dueDate, totalPotholes, totalPatchy, status } = useLocalSearchParams();
   const [task, setTask] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -31,7 +31,7 @@ export default function TaskDetailsScreen() {
       setTask({
         id: id,
         dbId: dbId,
-        status: 'Assigned',
+        status: status || 'Assigned',
         priority: priority || 'Medium',
         address: location || 'Location pending',
         dueDate: (typeof dueDate === 'string' ? dueDate : Array.isArray(dueDate) ? dueDate[0] : '') || '',
@@ -116,14 +116,23 @@ export default function TaskDetailsScreen() {
     }
   };
 
-  const getStatusColor = () => ({
-    bg: '#E5F0FF',
-    text: '#0066FF',
-    dot: '#0066FF',
-  });
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'In Progress':
+        return { bg: '#FFF4E5', text: '#FF8800', dot: '#FF8800' };
+      case 'Pending Verification':
+        return { bg: '#FFF4E5', text: '#FF8800', dot: '#FF8800' };
+      case 'Completed':
+        return { bg: '#E5F5E5', text: '#44AA44', dot: '#44AA44' };
+      case 'Rejected':
+        return { bg: '#FFE5E5', text: '#FF4444', dot: '#FF4444' };
+      default:
+        return { bg: '#E5F0FF', text: '#0066FF', dot: '#0066FF' };
+    }
+  };
 
   const priorityStyle = getPriorityColor(task.priority);
-  const statusStyle = getStatusColor();
+  const statusStyle = getStatusColor(task.status);
 
   // ---------- MAP ----------
   const openGoogleMaps = () => {

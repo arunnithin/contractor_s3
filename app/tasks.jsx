@@ -484,11 +484,37 @@ export default function TasksScreen() {
                 {activeFilter !== 'Completed' &&
                   task.status !== 'Rejected' &&
                   !(task.status === 'Assigned' && !task.accepted) && (
-                  <TouchableOpacity onPress={() => handleTaskPress(task)}>
-                    <Text style={styles.viewDetails}>
-                      {task.status === 'In Progress' && !task.awaitingApproval ? 'Update ›' : 'View Details ›'}
-                    </Text>
-                  </TouchableOpacity>
+                  <View style={styles.actionButtons}>
+                    {task.status === 'In Progress' && !task.awaitingApproval && (
+                      <>
+                        <TouchableOpacity onPress={() => router.push({
+                          pathname: '/task-details',
+                          params: {
+                            id: task.id,
+                            dbId: task.dbId,
+                            latitude: task.latitude,
+                            longitude: task.longitude,
+                            priority: task.priority,
+                            location: task.location,
+                            dueDate: task.dueDate || '',
+                            totalPotholes: task.totalPotholes,
+                            totalPatchy: task.totalPatchy,
+                            status: task.status,
+                          },
+                        })}>
+                          <Text style={styles.viewDetails}>View Details ›</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleTaskPress(task)}>
+                          <Text style={[styles.viewDetails, { marginLeft: 12 }]}>Update ›</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                    {(task.status !== 'In Progress' || task.awaitingApproval) && (
+                      <TouchableOpacity onPress={() => handleTaskPress(task)}>
+                        <Text style={styles.viewDetails}>View Details ›</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 )}
               </View>
             </View>
