@@ -236,15 +236,24 @@ const styles = StyleSheet.create({
   },
 
   badge1: {
-    position: 'absolute',
-    right: rs(12),
-    top: vs(12),
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: rs(8),
     paddingVertical: vs(5),
     borderRadius: rs(12),
-    maxWidth: '45%',
+    maxWidth: '100%',
+    gap: rs(8),
+  },
+
+  statusBadgesRow: {
+    position: 'absolute',
+    right: rs(12),
+    top: vs(12),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+    maxWidth: '75%',
     gap: rs(8),
   },
 

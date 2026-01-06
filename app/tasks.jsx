@@ -402,15 +402,26 @@ export default function TasksScreen() {
         {filteredTasks().map(task => {
           const priorityStyle = getPriorityColor(task.priority);
           const statusStyle = getStatusColor(task.status);
+          const rejectedStyle = getStatusColor('Rejected');
           const prePhotoUri = task.preWorkPhotoUrl || task.preWorkPhoto || null;
           const postPhotoUri = task.postWorkPhotoUrl || task.postWorkPhoto || null;
           const showPendingProof = !!task.awaitingApproval && !!prePhotoUri && !!postPhotoUri;
+          const showRejectedIndicator = !!task.remarks && task.status === 'In Progress';
 
           return (
             <View key={task.id} style={styles.taskCard}>
-              <View style={[styles.badge1, { backgroundColor: statusStyle.bg }]}>
-                <View style={[styles.statusDot1, { backgroundColor: statusStyle.dot }]} />
-                <Text style={[styles.badgeText1, { color: statusStyle.text }]}>{task.status}</Text>
+              <View style={styles.statusBadgesRow}>
+                <View style={[styles.badge1, { backgroundColor: statusStyle.bg }]}>
+                  <View style={[styles.statusDot1, { backgroundColor: statusStyle.dot }]} />
+                  <Text style={[styles.badgeText1, { color: statusStyle.text }]}>{task.status}</Text>
+                </View>
+
+                {showRejectedIndicator && (
+                  <View style={[styles.badge1, { backgroundColor: rejectedStyle.bg }]}>
+                    <View style={[styles.statusDot1, { backgroundColor: rejectedStyle.dot }]} />
+                    <Text style={[styles.badgeText1, { color: rejectedStyle.text }]}>Rejected</Text>
+                  </View>
+                )}
               </View>
 
               <Text style={styles.taskId}>{task.id}</Text>
@@ -443,7 +454,7 @@ export default function TasksScreen() {
               {!!task.remarks && task.status === 'In Progress' && (
                 <View style={styles.taskInfo}>
                   <Ionicons name="chatbubble-ellipses-outline" size={16} color="#666" />
-                  <Text style={styles.taskText}>{task.remarks}</Text>
+                  <Text style={styles.taskText}>Remarks : {task.remarks}</Text>
                 </View>
               )}
               </View>
